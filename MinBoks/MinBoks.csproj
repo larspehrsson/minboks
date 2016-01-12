@@ -55,6 +55,7 @@
     <Compile Include="Eboks\Api.cs" />
     <Compile Include="Eboks\DTO.cs" />
     <Compile Include="Eboks\Session.cs" />
+    <Compile Include="Eboks\UTF8StringWriter.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>

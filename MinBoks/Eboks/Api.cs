@@ -1,6 +1,7 @@
 ﻿using RestSharp;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml.Serialization;
@@ -20,6 +21,7 @@ namespace MinBoks.Eboks
             client.UserAgent = "eboks/35 CFNetwork/672.1.15 Darwin/14.0.0";
 
             var request = new RestRequest("/session", Method.PUT);
+            request.RequestFormat = DataFormat.Xml;
 
             Session session = new Session();
             session.DeviceId = Guid.NewGuid().ToString();
@@ -41,7 +43,33 @@ namespace MinBoks.Eboks
             logon.User.Nationality = "DK";
             logon.User.Pincode = account.Password;
 
-            request.AddBody(logon, "urn:eboks:mobile:1.0.0");
+            //request.AddBody(logon, "urn:eboks:mobile:1.0.0");
+
+            /*
+string xml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" + Environment.NewLine +
+             "<register-request">" + Environment.NewLine +
+             "    <name=\"someName\"/>" + Environment.NewLine +
+             "</register-request>");
+
+request.AddParameter("text/xml", registerSinkRequest, ParameterType.RequestBody);
+            */
+
+            string xml;
+
+            var serializer = new XmlSerializer(logon.GetType(), "urn:eboks:mobile:1.0.0");
+
+            var ns = new XmlSerializerNamespaces();
+            ns.Add("xsi", "http://www.w3.org/2001/XMLSchema-instance");
+            ns.Add("xsd", "http://www.w3.org/2001/XMLSchema");
+
+            using(StringWriter textWriter = new Utf8StringWriter())
+            {
+                serializer.Serialize(textWriter, logon, ns);
+                xml = textWriter.ToString();
+            }
+
+
+
 
             IRestResponse response;
 
