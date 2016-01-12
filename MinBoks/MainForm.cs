@@ -20,9 +20,9 @@ namespace MinBoks
         private void button1_Click(object sender, EventArgs e)
         {
             Eboks.Account account = new Eboks.Account();
-            account.UserId = "xxxxxxxxx";
-            account.Password = "yyyyyyy";
-            account.ActivationCode = "zzzzzzzz";
+            account.UserId = tbUserId.Text;
+            account.Password = tbPassword.Text;
+            account.ActivationCode = tbActivationCode.Text;
 
             Eboks.Api api = new Eboks.Api();
             api.GetSessionForAccount(account);

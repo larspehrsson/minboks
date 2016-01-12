@@ -1,11 +1,9 @@
 ﻿using RestSharp;
-using RestSharp.Serializers;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
+using System.Xml.Serialization;
 
 namespace MinBoks.Eboks
 {
@@ -28,25 +26,20 @@ namespace MinBoks.Eboks
 
             request.AddHeader("X-EBOKS-AUTHENTICATE", GetAuthHeader(account, session));
             //request.AddHeader("Content-Type", "application/xml");
-            //request.AddHeader("Accept", "*/*");
+            request.AddHeader("Accept", "*/*");
 
-            var logon = new Logon
-            {
-                App = new App
-                {
-                    version = "1.4.1",
-                    os = "iOS",
-                    osVersion = "9.0.0",
-                    Device = "iPhone"
-                },
-                User = new User
-                {
-                    identity = account.UserId,
-                    identityType = "P",
-                    nationality = "DK",
-                    pincode = account.Password
-                }
-            };
+            var logon = new Logon();
+            logon.App = new App();
+            logon.App.Version = "1.4.1";
+            logon.App.OS = "iOS";
+            logon.App.OSVersion = "9.0.0";
+            logon.App.Device = "iPhone";
+
+            logon.User = new User();
+            logon.User.Identity = account.UserId;
+            logon.User.IdentityType = "P";
+            logon.User.Nationality = "DK";
+            logon.User.Pincode = account.Password;
 
             request.AddBody(logon, "urn:eboks:mobile:1.0.0");
 

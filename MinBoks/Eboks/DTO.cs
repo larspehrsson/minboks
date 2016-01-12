@@ -1,35 +1,30 @@
 ﻿using RestSharp.Serializers;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MinBoks.Eboks
 {
     public class App
     {
-        [SerializeAs(Name = "version")]
-        public string version { get; set; }
-        [SerializeAs(Name = "os")]
-        public string os { get; set; }
-        [SerializeAs(Name = "osVersion")]
-        public string osVersion { get; set; }
-        [SerializeAs(Name = "Device")]
+        [SerializeAs(Name = "version", Attribute = true)]
+        public string Version { get; set; }
+        [SerializeAs(Name = "os", Attribute = true)]
+        public string OS { get; set; }
+        [SerializeAs(Name = "osVersion", Attribute = true)]
+        public string OSVersion { get; set; }
+        [SerializeAs(Name = "Device", Attribute = true)]
         public string Device { get; set; }
     }
 
 
     public class User
     {
-        [SerializeAs(Name = "identity")]
-        public string identity { get; set; }
-        [SerializeAs(Name = "identityType")]
-        public string identityType { get; set; }
-        [SerializeAs(Name = "nationality")]
-        public string nationality { get; set; }
-        [SerializeAs(Name = "pincode")]
-        public string pincode { get; set; }
+        [SerializeAs(Name = "identity", Attribute = true)]
+        public string Identity { get; set; }
+        [SerializeAs(Name = "identityType", Attribute = true)]
+        public string IdentityType { get; set; }
+        [SerializeAs(Name = "nationality", Attribute = true)]
+        public string Nationality { get; set; }
+        [SerializeAs(Name = "pincode", Attribute = true)]
+        public string Pincode { get; set; }
     }
 
 
