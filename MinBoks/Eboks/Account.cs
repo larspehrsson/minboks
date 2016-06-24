@@ -8,6 +8,7 @@ namespace MinBoks.Eboks
 {
     internal class Account
     {
+        public string uid { get; set; }
         public string UserId { get; set; }
 
         public string Password { get; set; }
@@ -17,5 +18,7 @@ namespace MinBoks.Eboks
         public string OwnerName { get; set; }
 
         public bool FailedLoading { get; set; }
+        public string DeviceId { get; set; }
+        public string response { get; set; }
     }
 }

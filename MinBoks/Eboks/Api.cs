@@ -1,132 +1,186 @@
-﻿using RestSharp;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using System.Xml.Serialization;
+using System.Xml.Linq;
+using System.Xml.XPath;
+using RestSharp;
 
 namespace MinBoks.Eboks
 {
     internal class Api
     {
-        public Api()
+        private const string BaseUrl = "https://rest.e-boks.dk/mobile/1/xml.svc/en-gb";
+        private static Session _session = new Session();
+        private MainForm _mainForm = new MainForm();
+
+        public void setguireference(MainForm mf)
         {
+            _mainForm = mf;
         }
 
-
-        public Session GetSessionForAccount(Account account)
+        public void GetSessionForAccountRest(Account account)
         {
-            RestClient client = new RestClient(BaseUrl);
-            client.UserAgent = "eboks/35 CFNetwork/672.1.15 Darwin/14.0.0";
+            var client = new RestClient(BaseUrl)
+            {
+                UserAgent = "eboks/35 CFNetwork/672.1.15 Darwin/14.0.0"
+            };
 
-            var request = new RestRequest("/session", Method.PUT);
-            request.RequestFormat = DataFormat.Xml;
+            var request = new RestRequest("/session", Method.PUT)
+            {
+                RequestFormat = DataFormat.Xml
+            };
 
-            Session session = new Session();
-            session.DeviceId = Guid.NewGuid().ToString();
+            _session.DeviceId = account.DeviceId;
 
-            request.AddHeader("X-EBOKS-AUTHENTICATE", GetAuthHeader(account, session));
-            //request.AddHeader("Content-Type", "application/xml");
+            request.AddHeader("X-EBOKS-AUTHENTICATE", GetAuthHeader(account, _session));
+            request.AddHeader("Content-Type", "application/xml");
             request.AddHeader("Accept", "*/*");
 
-            var logon = new Logon();
-            logon.App = new App();
-            logon.App.Version = "1.4.1";
-            logon.App.OS = "iOS";
-            logon.App.OSVersion = "9.0.0";
-            logon.App.Device = "iPhone";
+            var xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
+                      "<Logon xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns=\"urn:eboks:mobile:1.0.0\">" +
+                      "<App version=\"1.4.1\" os=\"iOS\" osVersion=\"9.0.0\" Device=\"iPhone\" />" +
+                      "<User identity=\"" + account.UserId + "\" identityType=\"P\" nationality=\"DK\" pincode=\"" +
+                      account.Password + "\"/>" +
+                      "</Logon>";
 
-            logon.User = new User();
-            logon.User.Identity = account.UserId;
-            logon.User.IdentityType = "P";
-            logon.User.Nationality = "DK";
-            logon.User.Pincode = account.Password;
+            request.AddParameter("application/xml", xml, ParameterType.RequestBody);
 
-            //request.AddBody(logon, "urn:eboks:mobile:1.0.0");
+            var response = client.Execute(request);
 
-            /*
-string xml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>" + Environment.NewLine +
-             "<register-request">" + Environment.NewLine +
-             "    <name=\"someName\"/>" + Environment.NewLine +
-             "</register-request>");
+            var sessionid =
+                response.Headers.Where(c => c.Name == "X-EBOKS-AUTHENTICATE")
+                    .Select(c => c.Value)
+                    .FirstOrDefault()
+                    .ToString()
+                    .Split(',');
 
-request.AddParameter("text/xml", registerSinkRequest, ParameterType.RequestBody);
-            */
+            _session.SessionId = sessionid[0].Substring(11, sessionid[0].Length - 12);
+            _session.Nonce = sessionid[1].Substring(8, sessionid[1].Length - 9);
 
-            string xml;
+            var doc = RemoveAllNameSpaces(response.Content);
 
-            var serializer = new XmlSerializer(logon.GetType(), "urn:eboks:mobile:1.0.0");
+            _session.Name = doc.XPathSelectElement("Session/User").Attribute("name").Value;
+            _session.InternalUserId = doc.XPathSelectElement("Session/User").Attribute("userId").Value;
+        }
 
-            var ns = new XmlSerializerNamespaces();
-            ns.Add("xsi", "http://www.w3.org/2001/XMLSchema-instance");
-            ns.Add("xsd", "http://www.w3.org/2001/XMLSchema");
+        public void DownloadAll(Account account)
+        {
 
-            using(StringWriter textWriter = new Utf8StringWriter())
+            var xdoc = getxml(account, _session.InternalUserId + "/0/mail/folders");
+
+            var queryFolders = (from t in xdoc.Descendants("FolderInfo") where t.Attribute("id") != null select t).ToList();
+
+            foreach (var folder in queryFolders)
             {
-                serializer.Serialize(textWriter, logon, ns);
-                xml = textWriter.ToString();
+                var folderid = folder.Attribute("id").Value;
+                var foldername = folder.Attribute("name").Value;
+
+                GetSessionForAccountRest(account);
+
+                var messages = getxml(account, _session.InternalUserId + "/0/mail/folder/" + folderid + "?skip=0&take=100");
+
+                var queryMessages = (from t in messages.Descendants("MessageInfo") where t.Attribute("id") != null select t).ToList();
+                foreach (var message in queryMessages)
+                {
+                    var messageId = message.Attribute("id").Value;
+                    var messageName = message.Attribute("name").Value;
+                    var format = message.Attribute("format").Value;
+
+                    GetSessionForAccountRest(account);
+
+                    var xmessages = getxml(account, _session.InternalUserId + "/0/mail/folder/" + folderid + "/message/" + messageId);
+                    GetSessionForAccountRest(account);
+
+                    getContent(account, _session.InternalUserId + "/0/mail/folder/" + folderid + "/message/" + messageId + "/content", messageName + " - " + messageId + "." + format);
+
+                }
             }
 
-
-
-
-            IRestResponse response;
-
-            response = client.Execute(request);
-
-            return null;
         }
 
-
-        public List<string> GetFolders(Account account)
+        public XDocument getxml(Account account, string url)
         {
-            return null;
+            var client = new RestClient(BaseUrl)
+            {
+                UserAgent = "eboks/35 CFNetwork/672.1.15 Darwin/14.0.0"
+            };
+
+            var request = new RestRequest(url, Method.GET);
+            request.AddHeader("X-EBOKS-AUTHENTICATE", GetSessionHeader(account));
+            request.AddHeader("Accept", "*/*");
+
+            var response = client.Execute(request);
+            var responsedoc = RemoveAllNameSpaces(response.Content);
+
+            return responsedoc;
         }
 
 
-        public void GetFolderId(Session session, string folderId)
+        public XDocument RemoveAllNameSpaces(string content)
         {
+            // TODO: Remove this ugly replace
+            var responsedoc = XDocument.Parse(content.Replace("xmlns=\"urn:eboks:mobile:1.0.0\"", ""));
+            // Remove all namespaces from document
+            responsedoc.Descendants().Attributes().Where(a => a.IsNamespaceDeclaration).Remove();
+
+            return responsedoc;
         }
 
-
-        public void GetFileDataForMessageId(Session session, string messageId)
+        public bool getContent(Account account, string url, string filename)
         {
-        }
+            if (File.Exists(filename))
+                return true;
 
+            var client = new RestClient(BaseUrl)
+            {
+                UserAgent = "eboks/35 CFNetwork/672.1.15 Darwin/14.0.0"
+            };
+
+            var request = new RestRequest(url, Method.GET);
+            request.AddHeader("X-EBOKS-AUTHENTICATE", GetSessionHeader(account));
+            request.AddHeader("Accept", "*/*");
+
+            filename = Path.GetInvalidFileNameChars().Aggregate(filename, (current, c) => current.Replace(c, '_'));
+
+            _mainForm.Log("Downloader " + filename);
+
+            var filedata = client.DownloadData(request);
+            File.WriteAllBytes(filename, filedata);
+            return true;
+        }
 
         private string GetAuthHeader(Account account, Session session)
         {
-            string date = DateTime.Now.ToString("R");
+            var date = DateTime.Now.ToString("yyyy-mm-dd HH:mm:ss");
 
-            string input = string.Format("{0}:{1}:P:{2}:DK:{3}:{4}",
-                account.ActivationCode,
-                session.DeviceId,
-                account.UserId,
-                account.Password,
-                date);
+            string input =
+                $"{account.ActivationCode}:{session.DeviceId}:P:{account.UserId}:DK:{account.Password}:{date}";
 
-            string challenge = Sha256Hash(input);
+            var challenge = Sha256Hash(input);
             challenge = Sha256Hash(challenge);
 
-            return string.Format("logon deviceid=\"{0}\",datetime=\"{1}\",challenge=\"{2}\"", session.DeviceId, date, challenge);
+            return $"logon deviceid=\"{session.DeviceId}\",datetime=\"{date}\",challenge=\"{challenge}\"";
         }
 
+        private string GetSessionHeader(Account account)
+        {
+            string input = $"deviceid={_session.DeviceId},nonce={_session.Nonce},sessionid={_session.SessionId},response={account.response}";
+            return input;
+        }
 
         private string Sha256Hash(string value)
         {
-            StringBuilder Sb = new StringBuilder();
+            var sb = new StringBuilder();
 
-            using (var hasher = SHA256Managed.Create()) {
-                Byte[] result = hasher.ComputeHash(Encoding.UTF8.GetBytes(value));
-                foreach (Byte b in result)
-                    Sb.Append(b.ToString("x2"));
-              }
-              return Sb.ToString();
+            using (var hasher = SHA256.Create())
+            {
+                var result = hasher.ComputeHash(Encoding.UTF8.GetBytes(value));
+                foreach (var b in result)
+                    sb.Append(b.ToString("x2"));
+            }
+            return sb.ToString();
         }
-
-
-
-        private const string BaseUrl = "https://rest.e-boks.dk/mobile/1/xml.svc/en-gb";
     }
 }
