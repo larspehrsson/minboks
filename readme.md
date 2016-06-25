@@ -15,9 +15,9 @@ deviceid |  | Dannes automatisk ved første kørsel
 mailserver | smtp.gmail.com | DNS til mailserver
 mailserverport | 587 | Port til mailserver
 mailserverssl | True | Skal der bruges SSL til mailserver
-mailfrom | mail@local.com | Hvem skal stå som afsender
-mailto | mail@local.com | Hvem skal modtage mail
-mailserveruser | mail@local.com | Brugernavn til mailserver
+mailfrom | <din email> | Hvem skal stå som afsender
+mailto | <din email>  | Hvem skal modtage mail
+mailserveruser | <din email> | Brugernavn til mailserver
 mailserverpassword | secret | Password til mailserver
 savepath | c:\temp\ | Hvor skal modtagne dokumenter gemmes
 opbyghentet | True | Ved første kørsel kan denne sættes til True. Så vil den ikke hente noget men blot markere alle dokumenter som hentet. Sættes automatisk til false derefter.
