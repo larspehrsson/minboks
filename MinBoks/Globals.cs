@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Reflection;
 
 namespace MinBoks
 {
@@ -14,9 +15,11 @@ namespace MinBoks
             {
                 try
                 {
+                    var exePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+
                     Console.WriteLine(DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") + " " +
                                       string.Format(format, args));
-                    var logFile = "eboksreceiver-" + DateTime.UtcNow.ToString("MM") + ".log";
+                    var logFile = exePath+"\\eboksreceiver-" + DateTime.UtcNow.ToString("MM") + ".log";
                     using (var fp = new StreamWriter(logFile, true))
                     {
                         fp.WriteLine(DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss") + " " + string.Format(format, args));

@@ -52,6 +52,8 @@ namespace MinBoks
             if (!loadconfig())
                 return;
 
+            var delay = int.Parse(getValue("retrydelay"))*60*1000;
+
             var deviceid = getValue("deviceid");
             if (string.IsNullOrEmpty(deviceid))
                 deviceid = Guid.NewGuid().ToString();
@@ -89,7 +91,8 @@ namespace MinBoks
                 AppGlobals.logMessage("Kontrollerer for nye meddelelser");
                 api.GetSessionForAccountRest(account);
                 api.DownloadAll(account);
-                Thread.Sleep(10*60*1000);
+                AppGlobals.logMessage("Kontrol slut");
+                Thread.Sleep(delay);
             }
         }
 
@@ -119,7 +122,7 @@ namespace MinBoks
             if (exeConfigPath.EndsWith("MinBoks.exe"))
                 exeConfigPath = exeConfigPath.Replace("eBoksConsole", "MinBoks");
 
-            AppGlobals.logMessage("Åbner configfilen " + exeConfigPath);
+            AppGlobals.logMessage("Åbner configfilen " + exeConfigPath + ".config");
 
             try
             {
@@ -143,10 +146,10 @@ namespace MinBoks
 
         private static string GetRandomHexNumber(int digits)
         {
-            var buffer = new byte[digits/2];
+            var buffer = new byte[digits / 2];
             Random.NextBytes(buffer);
             var result = string.Concat(buffer.Select(x => x.ToString("X2")).ToArray());
-            if (digits%2 == 0)
+            if (digits % 2 == 0)
                 return result.ToLower();
             return (result + Random.Next(16).ToString("x")).ToLower();
         }

@@ -1,16 +1,15 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Mail;
 using System.Net.Mime;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml.Linq;
 using System.Xml.XPath;
-using MinBoks.Properties;
 using RestSharp;
 
 namespace MinBoks.Eboks
@@ -23,7 +22,7 @@ namespace MinBoks.Eboks
 
         public void LoadHentetList()
         {
-            using (StreamReader sr = new StreamReader("hentet.txt"))
+            using (StreamReader sr = new StreamReader(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)+"\\hentet.txt"))
             {
                 while (sr.Peek() >= 0)
                 {
@@ -36,12 +35,12 @@ namespace MinBoks.Eboks
         {
             try
             {
-                System.IO.File.WriteAllLines("hentet.txt", Hentet);
+                System.IO.File.WriteAllLines(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)+"\\hentet.txt", Hentet);
             }
             catch (Exception)
             {
                 System.Threading.Thread.Sleep(1000);
-                System.IO.File.WriteAllLines("hentet.txt", Hentet);
+                System.IO.File.WriteAllLines(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)+"\\hentet.txt", Hentet);
             }
         }
 
@@ -180,7 +179,6 @@ namespace MinBoks.Eboks
         {
             filename = Path.GetInvalidFileNameChars().Aggregate(filename, (current, c) => current.Replace(c, '_'));
             filename = EboksServer.getValue("savepath") + filename;
-
 
             if (File.Exists(filename))
                 return null;
