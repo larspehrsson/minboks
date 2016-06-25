@@ -124,6 +124,7 @@ namespace MinBoks.Eboks
                     var format = message.Attribute("format").Value;
                     var afsender = message.Value;
                     var subject = message.Attribute("name").Value;
+                    var modtaget = DateTime.Parse(message.Attribute("receivedDateTime").Value);
 
                     if (EboksServer.getValue("opbyghentet") == "True")
                     {
@@ -138,7 +139,7 @@ namespace MinBoks.Eboks
                         GetSessionForAccountRest(account);
                         mailContent(account,
                             _session.InternalUserId + "/0/mail/folder/" + folderid + "/message/" + messageId +
-                            "/content", messageName + " - " + messageId + "." + format, afsender, subject);
+                            "/content", messageName + " - " + messageId + "." + format, afsender, subject, modtaget);
                     }
                     Hentet.Add(messageId);
                     SaveHentetList();
@@ -175,7 +176,7 @@ namespace MinBoks.Eboks
             return responsedoc;
         }
 
-        public string getContent(Account account, string url, string filename)
+        public string getContent(Account account, string url, string filename, DateTime modtagetdato)
         {
             filename = Path.GetInvalidFileNameChars().Aggregate(filename, (current, c) => current.Replace(c, '_'));
             filename = EboksServer.getValue("savepath") + filename;
@@ -195,13 +196,20 @@ namespace MinBoks.Eboks
             var filedata = client.DownloadData(request);
             File.WriteAllBytes(filename, filedata);
 
+            File.SetCreationTime(filename, modtagetdato);
+            File.SetLastWriteTime(filename, modtagetdato);
+            File.SetLastAccessTime(filename, modtagetdato);
+
             return filename;
         }
 
-        public bool mailContent(Account account, string url, string filename, string afsender, string subject)
+        public bool mailContent(Account account, string url, string filename, string afsender, string subject, DateTime modtagetdato)
         {
-            filename = getContent(account, url, filename);
+            filename = getContent(account, url, filename, modtagetdato);
             if (filename == null)
+                return true;
+
+            if (EboksServer.getValue("downloadonly") == "True")
                 return true;
 
             // Create a message and set up the recipients.

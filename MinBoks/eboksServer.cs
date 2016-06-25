@@ -56,14 +56,17 @@ namespace MinBoks
 
             var deviceid = getValue("deviceid");
             if (string.IsNullOrEmpty(deviceid))
+            {
                 deviceid = Guid.NewGuid().ToString();
+                setValue("deviceid", deviceid);
+            }
 
             var response = getValue("response");
             if (string.IsNullOrEmpty(response))
+            {
                 response = GetRandomHexNumber(64);
-
-            setValue("deviceid", deviceid);
-            setValue("response", response);
+                setValue("response", response);
+            }
 
             var account = new Account
             {
