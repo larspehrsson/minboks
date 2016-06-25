@@ -76,8 +76,17 @@ namespace MinBoks
             var api = new Api();
             api.LoadHentetList();
 
+            if (EboksServer.getValue("opbyghentet") == "True")
+            {
+                AppGlobals.logMessage("Markerer alle beskeder som hentet");
+                api.GetSessionForAccountRest(account);
+                api.DownloadAll(account);
+                setValue("opbyghentet", "False");
+            }
+
             while (true)
             {
+                AppGlobals.logMessage("Kontrollerer for nye meddelelser");
                 api.GetSessionForAccountRest(account);
                 api.DownloadAll(account);
                 Thread.Sleep(10*60*1000);
@@ -110,7 +119,6 @@ namespace MinBoks
             if (exeConfigPath.EndsWith("MinBoks.exe"))
                 exeConfigPath = exeConfigPath.Replace("eBoksConsole", "MinBoks");
 
-            Console.WriteLine("Åbner configfilen " + exeConfigPath);
             AppGlobals.logMessage("Åbner configfilen " + exeConfigPath);
 
             try
@@ -119,14 +127,12 @@ namespace MinBoks
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Config fil kunne ikke findes " + ex.Message);
                 AppGlobals.logMessage("Config fil kunne ikke findes " + ex.Message);
                 return false;
             }
 
             if (!_config.HasFile)
             {
-                Console.WriteLine("Config fil kunne ikke findes " + _config.FilePath);
                 AppGlobals.logMessage("Config fil kunne ikke findes " + _config.FilePath);
                 return false;
             }

@@ -34,7 +34,15 @@ namespace MinBoks.Eboks
 
         public void SaveHentetList()
         {
-            System.IO.File.WriteAllLines("hentet.txt", Hentet);
+            try
+            {
+                System.IO.File.WriteAllLines("hentet.txt", Hentet);
+            }
+            catch (Exception)
+            {
+                System.Threading.Thread.Sleep(1000);
+                System.IO.File.WriteAllLines("hentet.txt", Hentet);
+            }
         }
 
         public void GetSessionForAccountRest(Account account)
@@ -89,19 +97,21 @@ namespace MinBoks.Eboks
         public void DownloadAll(Account account)
         {
 
+            // Henter liste over foldere
             var xdoc = getxml(account, _session.InternalUserId + "/0/mail/folders");
-
             var queryFolders = (from t in xdoc.Descendants("FolderInfo") where t.Attribute("id") != null select t).ToList();
 
+            // Traverser alle folderne
             foreach (var folder in queryFolders)
             {
                 var folderid = folder.Attribute("id").Value;
-                var foldername = folder.Attribute("name").Value;
+                //var foldername = folder.Attribute("name").Value;
 
+                // Hent liste over beskeder i hver folder
                 GetSessionForAccountRest(account);
-
                 var messages = getxml(account, _session.InternalUserId + "/0/mail/folder/" + folderid + "?skip=0&take=100");
 
+                // Traverser hver besked og hent vedhæftninger
                 var queryMessages = (from t in messages.Descendants("MessageInfo") where t.Attribute("id") != null select t).ToList();
                 foreach (var message in queryMessages)
                 {
@@ -116,13 +126,21 @@ namespace MinBoks.Eboks
                     var afsender = message.Value;
                     var subject = message.Attribute("name").Value;
 
-                    GetSessionForAccountRest(account);
+                    if (EboksServer.getValue("opbyghentet") == "True")
+                    {
+                        AppGlobals.logMessage("Markeres som hentet " + afsender + " vedr. " + subject);
+                    }
+                    else
+                    {
 
-                    var xmessages = getxml(account, _session.InternalUserId + "/0/mail/folder/" + folderid + "/message/" + messageId);
-                    GetSessionForAccountRest(account);
+                        AppGlobals.logMessage("Henter meddelelse fra " + afsender + " vedr. " + subject);
 
-                    mailContent(account, _session.InternalUserId + "/0/mail/folder/" + folderid + "/message/" + messageId + "/content", messageName + " - " + messageId + "." + format, afsender, subject);
-
+                        // Hent vedhæftninger til besked
+                        GetSessionForAccountRest(account);
+                        mailContent(account,
+                            _session.InternalUserId + "/0/mail/folder/" + folderid + "/message/" + messageId +
+                            "/content", messageName + " - " + messageId + "." + format, afsender, subject);
+                    }
                     Hentet.Add(messageId);
                     SaveHentetList();
                 }
@@ -218,7 +236,7 @@ namespace MinBoks.Eboks
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Exception caught in CreateMessageWithAttachment(): {0}", ex.ToString());
+                AppGlobals.logMessage($"Exception caught in CreateMessageWithAttachment(): {ex}");
             }
 
             data.Dispose();
