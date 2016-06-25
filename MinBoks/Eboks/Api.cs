@@ -1,10 +1,16 @@
 ﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Mail;
+using System.Net.Mime;
 using System.Security.Cryptography;
 using System.Text;
 using System.Xml.Linq;
 using System.Xml.XPath;
+using MinBoks.Properties;
 using RestSharp;
 
 namespace MinBoks.Eboks
@@ -13,11 +19,22 @@ namespace MinBoks.Eboks
     {
         private const string BaseUrl = "https://rest.e-boks.dk/mobile/1/xml.svc/en-gb";
         private static Session _session = new Session();
-        private MainForm _mainForm = new MainForm();
+        private List<string> Hentet = new List<string>();
 
-        public void setguireference(MainForm mf)
+        public void LoadHentetList()
         {
-            _mainForm = mf;
+            using (StreamReader sr = new StreamReader("hentet.txt"))
+            {
+                while (sr.Peek() >= 0)
+                {
+                    Hentet.Add(sr.ReadLine());
+                }
+            }
+        }
+
+        public void SaveHentetList()
+        {
+            System.IO.File.WriteAllLines("hentet.txt", Hentet);
         }
 
         public void GetSessionForAccountRest(Account account)
@@ -40,9 +57,13 @@ namespace MinBoks.Eboks
 
             var xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>" +
                       "<Logon xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns=\"urn:eboks:mobile:1.0.0\">" +
-                      "<App version=\"1.4.1\" os=\"iOS\" osVersion=\"9.0.0\" Device=\"iPhone\" />" +
-                      "<User identity=\"" + account.UserId + "\" identityType=\"P\" nationality=\"DK\" pincode=\"" +
-                      account.Password + "\"/>" +
+                          "<App version=\"1.4.1\" os=\"iOS\" osVersion=\"9.0.0\" Device=\"iPhone\" />" +
+                          "<User " +
+                              "identity=\"" + account.UserId + "\" " +
+                              "identityType=\"P\" " +
+                              "nationality=\"DK\" " +
+                              "pincode=\"" + account.Password + "\"" +
+                          "/>" +
                       "</Logon>";
 
             request.AddParameter("application/xml", xml, ParameterType.RequestBody);
@@ -85,16 +106,25 @@ namespace MinBoks.Eboks
                 foreach (var message in queryMessages)
                 {
                     var messageId = message.Attribute("id").Value;
+
+                    // Kontroller hvis allerede hentet
+                    if (Hentet.Contains(messageId))
+                        continue;
+
                     var messageName = message.Attribute("name").Value;
                     var format = message.Attribute("format").Value;
+                    var afsender = message.Value;
+                    var subject = message.Attribute("name").Value;
 
                     GetSessionForAccountRest(account);
 
                     var xmessages = getxml(account, _session.InternalUserId + "/0/mail/folder/" + folderid + "/message/" + messageId);
                     GetSessionForAccountRest(account);
 
-                    getContent(account, _session.InternalUserId + "/0/mail/folder/" + folderid + "/message/" + messageId + "/content", messageName + " - " + messageId + "." + format);
+                    mailContent(account, _session.InternalUserId + "/0/mail/folder/" + folderid + "/message/" + messageId + "/content", messageName + " - " + messageId + "." + format, afsender, subject);
 
+                    Hentet.Add(messageId);
+                    SaveHentetList();
                 }
             }
 
@@ -128,10 +158,14 @@ namespace MinBoks.Eboks
             return responsedoc;
         }
 
-        public bool getContent(Account account, string url, string filename)
+        public string getContent(Account account, string url, string filename)
         {
+            filename = Path.GetInvalidFileNameChars().Aggregate(filename, (current, c) => current.Replace(c, '_'));
+            filename = EboksServer.getValue("savepath") + filename;
+
+
             if (File.Exists(filename))
-                return true;
+                return null;
 
             var client = new RestClient(BaseUrl)
             {
@@ -142,12 +176,53 @@ namespace MinBoks.Eboks
             request.AddHeader("X-EBOKS-AUTHENTICATE", GetSessionHeader(account));
             request.AddHeader("Accept", "*/*");
 
-            filename = Path.GetInvalidFileNameChars().Aggregate(filename, (current, c) => current.Replace(c, '_'));
-
-            _mainForm.Log("Downloader " + filename);
-
             var filedata = client.DownloadData(request);
             File.WriteAllBytes(filename, filedata);
+
+            return filename;
+        }
+
+        public bool mailContent(Account account, string url, string filename, string afsender, string subject)
+        {
+            filename = getContent(account, url, filename);
+            if (filename == null)
+                return true;
+
+            // Create a message and set up the recipients.
+            var message = new MailMessage(
+                EboksServer.getValue("mailfrom"),
+                EboksServer.getValue("mailto"),
+                subject,
+                "")
+            {
+                From = new MailAddress(EboksServer.getValue("mailfrom"), afsender)
+            };
+
+
+            // Create  the file attachment for this e-mail message.
+            var data = new Attachment(filename, MediaTypeNames.Application.Octet);
+            var disposition = data.ContentDisposition;
+            // Add the file attachment to this e-mail message.
+            message.Attachments.Add(data);
+
+            //Send the message.
+            var mailclient = new SmtpClient(EboksServer.getValue("mailserver"), int.Parse(EboksServer.getValue("mailserverport")))
+            {
+                Credentials = new NetworkCredential(EboksServer.getValue("mailserveruser"), EboksServer.getValue("mailserverpassword")),
+                EnableSsl = EboksServer.getValue("mailserverssl") == "True",
+            };
+
+            try
+            {
+                mailclient.Send(message);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Exception caught in CreateMessageWithAttachment(): {0}", ex.ToString());
+            }
+
+            data.Dispose();
+
             return true;
         }
 
