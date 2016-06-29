@@ -1,6 +1,8 @@
 # MinBoks
 Program til automatisk at hente dokumenter fra eBoks og gemme dem i en mappe og evt. også videresende dem til en valgfri mail adresse.
 
+For en Windows GUI version se denne [MinEBoks](https://github.com/larspehrsson/MinEBoks).
+
 Programmet skal installeres som en windows service og poller derefter hver 4. time EBoks og henter nye dokumenter. 
 
 ####Elementer i .config:
