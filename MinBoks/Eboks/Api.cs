@@ -139,7 +139,7 @@ namespace MinBoks.Eboks
                         GetSessionForAccountRest(account);
                         mailContent(account,
                             _session.InternalUserId + "/0/mail/folder/" + folderid + "/message/" + messageId +
-                            "/content", messageName + " - " + messageId + "." + format, afsender, subject, modtaget);
+                            "/content", afsender.Trim() + " - " + messageName.Trim(), format, afsender, subject, modtaget);
                     }
                     Hentet.Add(messageId);
                     SaveHentetList();
@@ -176,14 +176,27 @@ namespace MinBoks.Eboks
             return responsedoc;
         }
 
-        public string getContent(Account account, string url, string filename, DateTime modtagetdato)
+        public string getContent(Account account, string url, string filename, string extension, DateTime modtagetdato)
         {
+			extension = extension.ToLower();
+
             filename = Path.GetInvalidFileNameChars().Aggregate(filename, (current, c) => current.Replace(c, '_'));
             filename = EboksServer.getValue("savepath") + filename;
 
-            if (File.Exists(filename))
-                return null;
-
+            if (File.Exists(filename + "." + extension))
+            {
+                var i = 0;
+                string tmpfilename;
+                do
+                {
+                    i += 1;
+                    tmpfilename = filename + "(" + i + ")." + extension;
+                } while (File.Exists(tmpfilename));
+                filename = tmpfilename;
+            }
+            else
+                filename += "." + extension;
+			
             var client = new RestClient(BaseUrl)
             {
                 UserAgent = "eboks/35 CFNetwork/672.1.15 Darwin/14.0.0"
@@ -203,9 +216,9 @@ namespace MinBoks.Eboks
             return filename;
         }
 
-        public bool mailContent(Account account, string url, string filename, string afsender, string subject, DateTime modtagetdato)
+        public bool mailContent(Account account, string url, string filename, string extension, string afsender, string subject, DateTime modtagetdato)
         {
-            filename = getContent(account, url, filename, modtagetdato);
+            filename = getContent(account, url, filename, extension, modtagetdato);
             if (filename == null)
                 return true;
 
